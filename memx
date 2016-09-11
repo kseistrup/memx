@@ -48,9 +48,9 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2016-09-11'
-__version__ = '0.0.1 ({0})'.format(__revision__)
+__version__ = '0.0.1 ({})'.format(__revision__)
 __copyright__ = """\
-memx {0}
+memx {}
 Copyright © 2015 Klaus Alexander Seistrup <klaus@seistrup.dk>
 
 This is free software; see the source for copying conditions.  There is no
@@ -61,7 +61,7 @@ DEBUG = os.environ.get('DEBUG', 'False')[0].upper() in '1JTY'  # 1/Ja/True/Yes
 MYLOG = logging.getLogger(__whoami__)
 
 DEFAULT_TTL = 60 * 60  # Seconds
-DEFAULT_DIR = pathlib.Path('~/.cache/{0}'.format(__whoami__)).expanduser()
+DEFAULT_DIR = pathlib.Path('~/.cache/{}'.format(__whoami__)).expanduser()
 
 
 class Config(dict):
