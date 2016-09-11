@@ -33,6 +33,7 @@ import sys
 import os
 import logging
 import argparse
+import pathlib
 import subprocess
 
 from pprint import pprint
@@ -46,7 +47,7 @@ except (ImportError, NameError, Error):
 
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
-__revision__ = '2015-10-04'
+__revision__ = '2016-09-11'
 __version__ = '0.0.1 ({0})'.format(__revision__)
 __copyright__ = """\
 memx {0}
@@ -60,7 +61,7 @@ DEBUG = os.environ.get('DEBUG', 'False')[0].upper() in '1JTY'  # 1/Ja/True/Yes
 MYLOG = logging.getLogger(__whoami__)
 
 DEFAULT_TTL = 60 * 60  # Seconds
-DEFAULT_DIR = os.path.expanduser('~/.cache/{0}'.format(__whoami__))
+DEFAULT_DIR = pathlib.Path('~/.cache/{0}'.format(__whoami__)).expanduser()
 
 
 class Config(dict):
@@ -119,6 +120,6 @@ def main(progname=__whoami__):
     raise NotImplementedError('not yet ready for consumption')
 
 if __name__ == '__main__':
-    sys.exit(main(os.path.basename(sys.argv[0])))
+    sys.exit(main(pathlib.Path(sys.argv[0]).name))
 
 # eof
