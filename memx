@@ -73,7 +73,7 @@ class Config(dict):
 
 
 def die(message=None):
-    """ Exit gracefully"""
+    """Exit gracefully"""
     if message:
         MYLOG.error(message)
     sys.exit(1 if message else 0)
