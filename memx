@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- mode: python; coding: utf-8 -*-
 """
-Usage: memx [OPTIONS] COMMAND [ARG [ARG …]]
+Usage: memx [OPTIONS] -- COMMAND [ARG [ARG …]]
 
 Positional arguments:
   COMMAND               command to run
@@ -32,11 +32,16 @@ Optional arguments:
 import sys
 import os
 import argparse
-import pathlib
-import subprocess
 
+import pathlib
+from pathlib import PosixPath
+
+import subprocess
 from subprocess import PIPE
+
 from hashlib import sha256
+from time import time
+
 from pprint import pprint
 
 try:
@@ -48,7 +53,7 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2016-09-12'
-__version__ = '0.1.0 ({})'.format(__revision__)
+__version__ = '0.1.1 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -59,7 +64,7 @@ warranty; not even for merchantability or fitness for a particular purpose.\
 
 DEBUG = os.environ.get('DEBUG', 'False')[0].upper() in '1JTY'  # 1/Ja/True/Yes
 
-DEFAULT_TTL = 60 * 60  # Seconds
+DEFAULT_TTL = -1  # Infinity
 DEFAULT_DIR = '~/.cache/{}'.format(__whoami__)
 
 DEV_STDOUT = '/dev/stdout'
@@ -74,133 +79,153 @@ class Config(dict):
     __delattr__ = dict.__delitem__
 
 
-def trim_message(message):
-    """Remove ugly “[Errno N]” from message"""
-    if message.startswith('[Errno '):
-        return message.split(']', 1)[1].lstrip()
-    return message
-
-
-def die(message=None):
+def die(error=None):
     """Exit gracefully"""
-    trimmed = trim_message(str(message) or '')
-    if trimmed:
-        print(trimmed, file=sys.stderr)
-    sys.exit(1 if message else 0)
+    if error:
+        if isinstance(error, bytes):
+            errmsg = error.decode('utf-8')
+        if not isinstance(errmsg, str):
+            errmsg = str(errmsg)
+        if errmsg.startswith('[Errno '):
+            errmsg = errmsg.split(']', 1)[1].rstrip()
+        print(errmsg, file=sys.stderr)
+    sys.exit(1 if error else 0)
 
 
-def get_config(args):
-    """Store configuration in a dot-dict object"""
-    config = Config()
-    config.force = args.force
-    config.dir = pathlib.Path(args.dir or DEFAULT_DIR).expanduser()
-    config.ttl = args.ttl or DEFAULT_TTL
-    config.command = [args.COMMAND] + args.ARG
-    config.digest = sha256(
-        '\0'.join(config.command).encode('utf-8')
-    ).hexdigest()
-
+def debug(head, data):
+    """Possibly pretty print an object to stderr"""
     if DEBUG:
-        pprint(config, stream=sys.stderr)
-
-    return config
-
-
-def run_command(vargs):
-    """Run a command and return stdout, stderr and rc"""
-    try:
-        proc = subprocess.run(vargs, stdout=PIPE, stderr=PIPE)
-    except OSError as error:
-        die(error)
-
-    return proc
+        pprint({head: data}, stream=sys.stderr)
 
 
 def has_space(string):
-    """Does STRING has a blank in it?"""
+    """Does string have a whitespace in it?"""
+    # This could be done with filter(),
+    # but that would also be less legible.
     for char in string:
         if char.isspace():
             return True
     return False
 
 
-def build_cmdline(vargs):
-    """Quote command line"""
+def get_config(args):
+    """Store configuration parameters in a dot-dict object"""
+    config = Config()
+    config.force = args.force
+    config.cachedir = pathlib.Path(args.dir or DEFAULT_DIR).expanduser()
+    config.ttl = int(round(args.ttl or DEFAULT_TTL))
+    config.vargs = [args.COMMAND] + args.ARG
     elms = [
-        "'{}'".format(arg) if has_space(arg) else arg for arg in vargs
+        '{!r}'.format(arg) if has_space(arg) else arg for arg in config.vargs
     ]
-    return ' '.join(elms)
+    config.cmdline = ' '.join(elms)
+    config.digest = sha256(
+        (config.cmdline + '\n').encode('utf-8')
+    ).hexdigest()
+    config.hashdir = config.cachedir / config.digest
+    config.outfile = config.hashdir / 'stdout'
+    config.errfile = config.hashdir / 'stderr'
+    config.rcfile = config.hashdir / 'rc'
+    config.cmdfile = config.hashdir / 'cmdline'
+
+    debug('conf', config)
+
+    return config
 
 
-def run_it(config):
-    """Really run a command"""
-    proc = run_command(config.command)
-
-    hashdir = config.dir / config.digest
-    hashdir.mkdir(mode=0o0750, parents=True, exist_ok=True)
-
-    with open((hashdir / 'stdout').as_posix(), 'wb') as fptr:
-        if proc.stdout:
-            fptr.write(proc.stdout)
-            with open(DEV_STDOUT, 'wb') as stdout:
-                stdout.write(proc.stdout)
-
-    with open((hashdir / 'stderr').as_posix(), 'wb') as fptr:
-        if proc.stderr:
-            fptr.write(proc.stderr)
-            with open(DEV_STDERR, 'wb') as stderr:
-                stderr.write(proc.stderr)
-
-    with open((hashdir / 'rc').as_posix(), 'w') as fptr:
-        print('{}'.format(proc.returncode), file=fptr)
-
-    with open((hashdir / 'cmdline').as_posix(), 'w') as fptr:
-        print(build_cmdline(config.command), file=fptr)
-
-    return proc.returncode
+def file_age(fname):
+    """Return the age of a file in seconds"""
+    return int(round(time() - fname.stat().st_mtime))
 
 
-def fake_it(ofile, efile, rcfile):
-    """Display cached results as if they were new"""
+def as_posix(fpath):
+    """Convert a PosixPath to a str instance"""
+    return fpath.as_posix() if isinstance(fpath, PosixPath) else fpath
+
+
+def copy_contents(infile, outfile):
+    """Copy contents from INFILE to OUTFILE"""
+    try:
+        with open(as_posix(infile), 'rb') as inptr:
+            with open(as_posix(outfile), 'wb') as outptr:
+                outptr.write(inptr.read())
+    except (IOError, OSError, PermissionError) as error:
+        die(error)
+
+
+def replay_command(config):
+    """Display results of a previous command execution"""
     returncode = -1
 
-    with open(DEV_STDOUT, 'wb') as stdout:
-        with open(ofile.as_posix(), 'rb') as fptr:
-            stdout.write(fptr.read())
+    copy_contents(config.outfile, DEV_STDOUT)
+    copy_contents(config.errfile, DEV_STDERR)
 
-    with open(DEV_STDERR, 'wb') as stderr:
-        with open(efile.as_posix(), 'rb') as fptr:
-            stderr.write(fptr.read())
-
-    with open(rcfile.as_posix(), 'r') as fptr:
-        returncode = int(fptr.readline().strip())
+    try:
+        with open(as_posix(config.rcfile), 'r') as fptr:
+            returncode = int(fptr.readline().strip())
+    except (IOError, OSError, PermissionError, ValueError) as error:
+        die(error)
 
     return returncode
 
 
-def run_or_fake(config):
-    """Decide whether to fake it or not"""
-    if config.force:
-        run_it(config)
-    hashdir = config.dir / config.digest
-    if not hashdir.exists():
-        return run_it(config)
-    (ofile, efile) = (hashdir / 'stdout', hashdir / 'stderr')
-    rcfile = hashdir / 'rc'
-    if not (ofile.exists() and efile.exists() and rcfile.exists()):
-        return run_it(config)
-    return fake_it(ofile, efile, rcfile)
+def write_to_files(buf, mode, *filepaths):
+    """Write the same buffer to multiple files"""
+    for fpath in filepaths:
+        try:
+            # Deliberately create a file if buf is empty
+            with open(as_posix(fpath), mode) as fptr:
+                if buf:
+                    fptr.write(buf)
+                    if mode == 'w':
+                        fptr.write('\n')
+        except (IOError, OSError, PermissionError) as error:
+            die(error)
+
+
+def run_command(config):
+    """Really run a command"""
+    try:
+        proc = subprocess.run(config.vargs, stdout=PIPE, stderr=PIPE)
+    except OSError as error:
+        die(error)
+
+    config.hashdir.mkdir(parents=True, exist_ok=True)
+
+    write_to_files(proc.stdout, 'wb', config.outfile, DEV_STDOUT)
+    write_to_files(proc.stderr, 'wb', config.errfile, DEV_STDERR)
+    write_to_files('{}'.format(proc.returncode), 'w', config.rcfile)
+    write_to_files(config.cmdline, 'w', config.cmdfile)
+
+    return proc.returncode
+
+
+def run_or_replay(config):
+    """Decide whether to replay a command or not"""
+    if config.force or not config.ttl:
+        return run_command(config)
+    if not (config.hashdir.exists() and
+            config.outfile.exists() and
+            config.errfile.exists() and
+            config.rcfile.exists() and
+            config.cmdfile.exists()):
+        return run_command(config)
+    if config.ttl != -1 and file_age(config.outfile) > config.ttl:
+        return run_command(config)
+    return replay_command(config)
 
 
 def main(progname=__whoami__):
     """Main entry point"""
+
+    debug('argv', sys.argv)
 
     parser = argparse.ArgumentParser(
         prog=progname,
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('-v', '--version', action='version',
-                        version='%(prog)s/' + __version__,
+                        version='%(prog)s/{}'.format(__version__),
                         help='show version information and exit')
     parser.add_argument('-c', '--copyright', action='version',
                         version=__copyright__,
@@ -212,13 +237,18 @@ def main(progname=__whoami__):
     parser.add_argument('-t', '--ttl', type=int, nargs='?',
                         help='time before we re-run command')
     parser.add_argument('COMMAND', help='command to run')
-    parser.add_argument('ARG', nargs='*', help='optional arg(s)')
+    parser.add_argument('ARG', nargs='*', help='optional arg(s) to command')
 
-    config = get_config(parser.parse_args())
+    args = parser.parse_args()
+    debug('args', args)
 
-    return run_or_fake(config)
+    config = get_config(args)
+
+    return run_or_replay(config)
 
 if __name__ == '__main__':
-    sys.exit(main(pathlib.Path(sys.argv[0]).name))
+    PROGNAME = pathlib.Path(sys.argv[0]).name
+    debug('prog', PROGNAME)
+    sys.exit(main(PROGNAME))
 
 # eof
