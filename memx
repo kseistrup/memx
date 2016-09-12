@@ -53,7 +53,7 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2016-09-12'
-__version__ = '0.1.1 ({})'.format(__revision__)
+__version__ = '0.1.2 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -190,7 +190,7 @@ def run_command(config):
     except OSError as error:
         die(error)
 
-    config.hashdir.mkdir(parents=True, exist_ok=True)
+    config.hashdir.mkdir(mode=0o0750, parents=True, exist_ok=True)
 
     write_to_files(proc.stdout, 'wb', config.outfile, DEV_STDOUT)
     write_to_files(proc.stderr, 'wb', config.errfile, DEV_STDERR)
