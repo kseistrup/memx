@@ -31,13 +31,13 @@ Optional arguments:
 
 import sys
 import os
-import logging
 import argparse
 import pathlib
 import subprocess
 
-from pprint import pprint
+from subprocess import PIPE
 from hashlib import sha256
+from pprint import pprint
 
 try:
     from locale import (Error, setlocale, LC_ALL)
@@ -47,8 +47,8 @@ except (ImportError, NameError, Error):
 
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
-__revision__ = '2016-09-11'
-__version__ = '0.0.1 ({})'.format(__revision__)
+__revision__ = '2016-09-12'
+__version__ = '0.1.0 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -58,10 +58,12 @@ warranty; not even for merchantability or fitness for a particular purpose.\
 """.format(__version__)
 
 DEBUG = os.environ.get('DEBUG', 'False')[0].upper() in '1JTY'  # 1/Ja/True/Yes
-MYLOG = logging.getLogger(__whoami__)
 
 DEFAULT_TTL = 60 * 60  # Seconds
-DEFAULT_DIR = pathlib.Path('~/.cache/{}'.format(__whoami__)).expanduser()
+DEFAULT_DIR = '~/.cache/{}'.format(__whoami__)
+
+DEV_STDOUT = '/dev/stdout'
+DEV_STDERR = '/dev/stderr'
 
 
 class Config(dict):
@@ -72,10 +74,18 @@ class Config(dict):
     __delattr__ = dict.__delitem__
 
 
+def trim_message(message):
+    """Remove ugly “[Errno N]” from message"""
+    if message.startswith('[Errno '):
+        return message.split(']', 1)[1].lstrip()
+    return message
+
+
 def die(message=None):
     """Exit gracefully"""
-    if message:
-        MYLOG.error(message)
+    trimmed = trim_message(str(message) or '')
+    if trimmed:
+        print(trimmed, file=sys.stderr)
     sys.exit(1 if message else 0)
 
 
@@ -83,14 +93,103 @@ def get_config(args):
     """Store configuration in a dot-dict object"""
     config = Config()
     config.force = args.force
-    config.dir = args.dir or DEFAULT_DIR
+    config.dir = pathlib.Path(args.dir or DEFAULT_DIR).expanduser()
     config.ttl = args.ttl or DEFAULT_TTL
     config.command = [args.COMMAND] + args.ARG
+    config.digest = sha256(
+        '\0'.join(config.command).encode('utf-8')
+    ).hexdigest()
 
     if DEBUG:
-        pprint(config)
+        pprint(config, stream=sys.stderr)
 
     return config
+
+
+def run_command(vargs):
+    """Run a command and return stdout, stderr and rc"""
+    try:
+        proc = subprocess.run(vargs, stdout=PIPE, stderr=PIPE)
+    except OSError as error:
+        die(error)
+
+    return proc
+
+
+def has_space(string):
+    """Does STRING has a blank in it?"""
+    for char in string:
+        if char.isspace():
+            return True
+    return False
+
+
+def build_cmdline(vargs):
+    """Quote command line"""
+    elms = [
+        "'{}'".format(arg) if has_space(arg) else arg for arg in vargs
+    ]
+    return ' '.join(elms)
+
+
+def run_it(config):
+    """Really run a command"""
+    proc = run_command(config.command)
+
+    hashdir = config.dir / config.digest
+    hashdir.mkdir(mode=0o0750, parents=True, exist_ok=True)
+
+    with open((hashdir / 'stdout').as_posix(), 'wb') as fptr:
+        if proc.stdout:
+            fptr.write(proc.stdout)
+            with open(DEV_STDOUT, 'wb') as stdout:
+                stdout.write(proc.stdout)
+
+    with open((hashdir / 'stderr').as_posix(), 'wb') as fptr:
+        if proc.stderr:
+            fptr.write(proc.stderr)
+            with open(DEV_STDERR, 'wb') as stderr:
+                stderr.write(proc.stderr)
+
+    with open((hashdir / 'rc').as_posix(), 'w') as fptr:
+        print('{}'.format(proc.returncode), file=fptr)
+
+    with open((hashdir / 'cmdline').as_posix(), 'w') as fptr:
+        print(build_cmdline(config.command), file=fptr)
+
+    return proc.returncode
+
+
+def fake_it(ofile, efile, rcfile):
+    """Display cached results as if they were new"""
+    returncode = -1
+
+    with open(DEV_STDOUT, 'wb') as stdout:
+        with open(ofile.as_posix(), 'rb') as fptr:
+            stdout.write(fptr.read())
+
+    with open(DEV_STDERR, 'wb') as stderr:
+        with open(efile.as_posix(), 'rb') as fptr:
+            stderr.write(fptr.read())
+
+    with open(rcfile.as_posix(), 'r') as fptr:
+        returncode = int(fptr.readline().strip())
+
+    return returncode
+
+
+def run_or_fake(config):
+    """Decide whether to fake it or not"""
+    if config.force:
+        run_it(config)
+    hashdir = config.dir / config.digest
+    if not hashdir.exists():
+        return run_it(config)
+    (ofile, efile) = (hashdir / 'stdout', hashdir / 'stderr')
+    rcfile = hashdir / 'rc'
+    if not (ofile.exists() and efile.exists() and rcfile.exists()):
+        return run_it(config)
+    return fake_it(ofile, efile, rcfile)
 
 
 def main(progname=__whoami__):
@@ -117,7 +216,7 @@ def main(progname=__whoami__):
 
     config = get_config(parser.parse_args())
 
-    raise NotImplementedError('not yet ready for consumption')
+    return run_or_fake(config)
 
 if __name__ == '__main__':
     sys.exit(main(pathlib.Path(sys.argv[0]).name))
