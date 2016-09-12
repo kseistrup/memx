@@ -1,7 +1,7 @@
 # memx
-Memoize output from job execution: Subsequent runs will use the cached values
-from a previous run, unless TTL has been reached (by default, jobs are only
-run once). The returncode is also preserved.
+Memoize output from job execution, while preserving stdout, stderr and
+returncode: Subsequent runs will use the cached values from a previous run,
+unless TTL has been reached (by default, jobs are only run once).
 
 ## Usage
 ```text
