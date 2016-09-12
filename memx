@@ -5,7 +5,7 @@ Usage: memx [OPTIONS] -- COMMAND [ARG [ARG …]]
 
 Positional arguments:
   COMMAND               command to run
-  ARG                   optional arg(s)
+  ARG                   optional arg(s) to command
 
 Optional arguments:
   -h, --help            show this help message and exit
