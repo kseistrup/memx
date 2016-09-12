@@ -5,7 +5,7 @@ Usage: memx [OPTIONS] -- COMMAND [ARG [ARG …]]
 
 Positional arguments:
   COMMAND               command to run
-  ARG                   optional arg(s) to command
+  ARG                   optional argument(s) to command
 
 Optional arguments:
   -h, --help            show this help message and exit
@@ -53,7 +53,7 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2016-09-12'
-__version__ = '0.1.5 ({})'.format(__revision__)
+__version__ = '0.1.6 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -238,7 +238,7 @@ def main(progname=__whoami__):
     parser.add_argument('-t', '--ttl', type=int, nargs='?',
                         help='time before we re-run command (default: never)')
     parser.add_argument('COMMAND', help='command to run')
-    parser.add_argument('ARG', nargs='*', help='optional arg(s) to command')
+    parser.add_argument('ARG', nargs='*', help='optional argument(s) to command')
 
     args = parser.parse_args()
     debug('args', args)
