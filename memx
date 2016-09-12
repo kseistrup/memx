@@ -25,8 +25,8 @@ Optional arguments:
 #                                                                            #
 # This program is distributed in the hope that it will be useful, but with-  #
 # out any warranty; without even the implied warranty of merchantability or  #
-# fitness for a particular purpose.  See the GNU General Public License for  #
-# more details.  <http://gplv3.fsf.org/>                                     #
+# fitness for a particular purpose. See the GNU General Public License for   #
+# more details. <http://gplv3.fsf.org/>                                      #
 ##############################################################################
 
 import sys
@@ -58,7 +58,7 @@ __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
 
-This is free software; see the source for copying conditions.  There is no
+This is free software; see the source for copying conditions. There is no
 warranty; not even for merchantability or fitness for a particular purpose.\
 """.format(__version__)
 
