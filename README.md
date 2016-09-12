@@ -39,3 +39,4 @@ $ memx -- date --utc '+%F %T %Z'  # subsequent run
 $ echo $?
 0
 ```
+:smile:
