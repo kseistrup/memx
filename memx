@@ -52,8 +52,8 @@ except (ImportError, NameError, Error):
 
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
-__revision__ = '2016-09-12'
-__version__ = '0.1.6 ({})'.format(__revision__)
+__revision__ = '2016-09-13'
+__version__ = '0.1.7 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -178,7 +178,7 @@ def write_to_files(buf, mode, *filepaths):
             with open(as_posix(fpath), mode) as fptr:
                 if buf:
                     fptr.write(buf)
-                    if mode == 'w':
+                    if 'b' not in mode:
                         fptr.write('\n')
         except (IOError, OSError, PermissionError) as error:
             die(error)
