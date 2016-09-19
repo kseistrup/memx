@@ -43,9 +43,8 @@ import subprocess
 from subprocess import PIPE
 
 from hashlib import (sha256, sha512)
+from pprint import pprin
 from time import time
-
-from pprint import pprint
 
 try:
     from locale import (Error, setlocale, LC_ALL)
