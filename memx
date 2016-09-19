@@ -13,9 +13,11 @@ Optional arguments:
   -c, --copyright       show copying policy and exit
   -f, --force           re-run command no matter what
   -d [DIR], --dir [DIR]
-                        where to store cache data      (default: ~/.cache)
+                        where to store cache data (default: ~/.cache)
   -t [TTL], --ttl [TTL]
-                        time before we re-run command  (default: never)
+                        time before we re-run command (default: never)
+  -x [CONTEXT], --context [CONTEXT]
+                        free form context
 """
 ##############################################################################
 # This program is free software; you can redistribute it and/or modify it    #
@@ -54,7 +56,7 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2016-09-19'
-__version__ = '0.2.0 ({})'.format(__revision__)
+__version__ = '0.2.1 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -261,7 +263,7 @@ def main(progname=__whoami__):
                         help='where to store cache data (default: ~/.cache)')
     parser.add_argument('-t', '--ttl', type=int, nargs='?',
                         help='time before we re-run command (default: never)')
-    parser.add_argument('--context', nargs='?', default='',
+    parser.add_argument('-x', '--context', nargs='?', default='',
                         help='free form context')
     parser.add_argument('COMMAND', help='command to run')
     parser.add_argument('ARG', nargs='*', help='optional argument(s) to command')
