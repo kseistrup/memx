@@ -32,6 +32,7 @@ Optional arguments:
 import sys
 import os
 import argparse
+import hmac
 
 import pathlib
 from pathlib import PosixPath
@@ -39,7 +40,7 @@ from pathlib import PosixPath
 import subprocess
 from subprocess import PIPE
 
-from hashlib import sha256
+from hashlib import (sha256, sha512)
 from time import time
 
 from pprint import pprint
@@ -53,7 +54,7 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2016-09-19'
-__version__ = '0.1.8 ({})'.format(__revision__)
+__version__ = '0.2.0 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -82,7 +83,7 @@ class Config(dict):
 
 def die(error=None):
     """Exit gracefully"""
-    rc = 1 if error else 0
+    returncode = 1 if error else 0
     if error:
         if isinstance(error, bytes):
             error = error.decode('utf-8')
@@ -91,7 +92,7 @@ def die(error=None):
         if error.startswith('[Errno '):
             error = error.split(']', 1)[1].lstrip()
         print(error, file=sys.stderr)
-    sys.exit(rc)
+    sys.exit(returncode)
 
 
 def debug(head, data):
@@ -110,25 +111,48 @@ def has_space(string):
     return False
 
 
+def as_posix(fpath):
+    """Convert a PosixPath to a str instance"""
+    return fpath.as_posix() if isinstance(fpath, PosixPath) else fpath
+
+
+def as_utf8(string):
+    """Encode a string as a UTF-8 bytearray"""
+    return string.encode('utf-8')
+
+
+def get_digest(config):
+    """Return a suitable HMAC digest for the current configuration"""
+    hasher = hmac.new(as_utf8(as_posix(config.cwd)), digestmod=sha512)
+    hasher.update(as_utf8(as_posix(pathlib.Path.home())))
+    hasher.update(as_utf8('{}:{}'.format(os.getuid(), os.getgid())))
+    hasher.update(as_utf8(config.cmdline))
+    if config.context:
+        hasher.update(as_utf8(config.context))
+    return sha256(hasher.digest()).hexdigest()
+
+
 def get_config(args):
     """Store configuration parameters in a dot-dict object"""
     config = Config()
     config.force = args.force
     config.cachedir = pathlib.Path(args.dir or DEFAULT_DIR).expanduser()
     config.ttl = int(round(args.ttl or DEFAULT_TTL))
+    config.cwd = pathlib.Path.cwd()
     config.vargs = [args.COMMAND] + args.ARG
     elms = [
         '{!r}'.format(arg) if has_space(arg) else arg for arg in config.vargs
     ]
     config.cmdline = ' '.join(elms)
-    config.digest = sha256(
-        (config.cmdline + '\n').encode('utf-8')
-    ).hexdigest()
+    config.context = args.context or ''
+    config.digest = get_digest(config)
     config.hashdir = config.cachedir / config.digest
     config.outfile = config.hashdir / 'stdout'
     config.errfile = config.hashdir / 'stderr'
     config.rcfile = config.hashdir / 'rc'
+    config.cwdfile = config.hashdir / 'cwd'
     config.cmdfile = config.hashdir / 'cmdline'
+    config.ctxfile = config.hashdir / 'context'
 
     debug('conf', config)
 
@@ -138,11 +162,6 @@ def get_config(args):
 def file_age(fname):
     """Return the age of a file in seconds"""
     return int(round(time() - fname.stat().st_mtime))
-
-
-def as_posix(fpath):
-    """Convert a PosixPath to a str instance"""
-    return fpath.as_posix() if isinstance(fpath, PosixPath) else fpath
 
 
 def copy_contents(infile, outfile):
@@ -198,6 +217,8 @@ def run_command(config):
     write_to_files(proc.stderr, 'wb', config.errfile, DEV_STDERR)
     write_to_files('{}'.format(proc.returncode), 'w', config.rcfile)
     write_to_files(config.cmdline, 'w', config.cmdfile)
+    write_to_files(as_posix(config.cwd), 'w', config.cwdfile)
+    write_to_files(config.context, 'w', config.ctxfile)
 
     return proc.returncode
 
@@ -210,7 +231,9 @@ def run_or_replay(config):
             config.outfile.exists() and
             config.errfile.exists() and
             config.rcfile.exists() and
-            config.cmdfile.exists()):
+            config.cmdfile.exists() and
+            config.cwdfile.exists() and
+            config.ctxfile.exists()):
         return run_command(config)
     if config.ttl != -1 and file_age(config.outfile) > config.ttl:
         return run_command(config)
@@ -238,6 +261,8 @@ def main(progname=__whoami__):
                         help='where to store cache data (default: ~/.cache)')
     parser.add_argument('-t', '--ttl', type=int, nargs='?',
                         help='time before we re-run command (default: never)')
+    parser.add_argument('--context', nargs='?', default='',
+                        help='free form context')
     parser.add_argument('COMMAND', help='command to run')
     parser.add_argument('ARG', nargs='*', help='optional argument(s) to command')
 
