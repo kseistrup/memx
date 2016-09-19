@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # -*- mode: python; coding: utf-8 -*-
 """
 Usage: memx [OPTIONS] -- COMMAND [ARG [ARG …]]
@@ -56,7 +56,7 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2016-09-19'
-__version__ = '0.2.2 ({})'.format(__revision__)
+__version__ = '0.2.3 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
