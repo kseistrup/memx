@@ -13,9 +13,9 @@ Optional arguments:
   -c, --copyright       show copying policy and exit
   -f, --force           re-run command no matter what
   -d [DIR], --dir [DIR]
-                        where to store cache data (default: ~/.cache)
+                        where to store cache data
   -t [TTL], --ttl [TTL]
-                        time before we re-run command (default: never)
+                        time in seconds before we re-run command
   -x [CONTEXT], --context [CONTEXT]
                         free form context
 """
@@ -43,7 +43,7 @@ import subprocess
 from subprocess import PIPE
 
 from hashlib import (sha256, sha512)
-from pprint import pprin
+from pprint import pprint
 from time import time
 
 try:
@@ -55,7 +55,7 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2016-09-19'
-__version__ = '0.2.3 ({})'.format(__revision__)
+__version__ = '0.2.4 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -63,6 +63,26 @@ Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
 This is free software; see the source for copying conditions. There is no
 warranty; not even for merchantability or fitness for a particular purpose.\
 """.format(__version__)
+
+EPILOG = """
+Memx will run COMMAND (with ARGs, if provided) and store standard
+output, standard error and returncode in a cache directory for use
+with subsequent runs. By default, the name of the cache directory is
+
+  ${cache_home}/memx/${hash}
+
+where $cache_home defaults to $XDG_CACHE_HOME (if unset, ~/.cache is
+used) and $hash is a SHA256 value derived from cwd, current UID/GID
+and their home directory, the command being run, and optionally the
+context, which, if given, is a user supplied free form string.
+
+By default, memx never re-runs a command a second time unless the
+TTL parameter is provided and has been reached. This behaviour can
+be overridden by the ‘--force’ option.
+
+Please notice that this Python implementation of memx is no longer
+compatible with the original memx written in bash.
+"""
 
 DEBUG = os.environ.get('DEBUG', 'False')[0].upper() in '1JTY'  # 1/Ja/True/Yes
 
@@ -248,6 +268,7 @@ def main(progname=__whoami__):
 
     parser = argparse.ArgumentParser(
         prog=progname,
+        epilog=EPILOG,
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument('-v', '--version', action='version',
@@ -259,9 +280,9 @@ def main(progname=__whoami__):
     parser.add_argument('-f', '--force', action='store_true',
                         help='re-run command no matter what')
     parser.add_argument('-d', '--dir', nargs='?',
-                        help='where to store cache data (default: ~/.cache)')
+                        help='where to store cache data')
     parser.add_argument('-t', '--ttl', type=int, nargs='?',
-                        help='time before we re-run command (default: never)')
+                        help='time in seconds before we re-run command')
     parser.add_argument('-x', '--context', nargs='?', default='',
                         help='free form context')
     parser.add_argument('COMMAND', help='command to run')
