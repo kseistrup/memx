@@ -9,7 +9,7 @@ Usage: memx [OPTIONS] -- COMMAND [ARG [ARG …]]
 
 Positional arguments:
   COMMAND               command to run
-  ARG                   optional arg(s) to command
+  ARG                   optional argument(s) to command
 
 Optional arguments:
   -h, --help            show this help message and exit
@@ -17,9 +17,11 @@ Optional arguments:
   -c, --copyright       show copying policy and exit
   -f, --force           re-run command no matter what
   -d [DIR], --dir [DIR]
-                        where to store cache data     (default: ~/.cache)
+                        where to store cache data (default: ~/.cache)
   -t [TTL], --ttl [TTL]
                         time before we re-run command (default: never)
+  -x [CONTEXT], --context [CONTEXT]
+                        free form context
 ```
 
 ## Requirements
