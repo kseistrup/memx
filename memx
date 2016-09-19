@@ -52,8 +52,8 @@ except (ImportError, NameError, Error):
 
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
-__revision__ = '2016-09-13'
-__version__ = '0.1.7 ({})'.format(__revision__)
+__revision__ = '2016-09-19'
+__version__ = '0.1.8 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -65,7 +65,8 @@ warranty; not even for merchantability or fitness for a particular purpose.\
 DEBUG = os.environ.get('DEBUG', 'False')[0].upper() in '1JTY'  # 1/Ja/True/Yes
 
 DEFAULT_TTL = -1  # Infinity
-DEFAULT_DIR = '~/.cache/{}'.format(__whoami__)
+CACHE_HOME = pathlib.Path(os.environ.get('XDG_CACHE_HOME', '~/.cache'))
+DEFAULT_DIR = (CACHE_HOME / __whoami__).as_posix()
 
 DEV_STDOUT = '/dev/stdout'
 DEV_STDERR = '/dev/stderr'
