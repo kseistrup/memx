@@ -41,4 +41,14 @@ $ memx -- date --utc '+%F %T %Z'  # subsequent run
 $ echo $?
 0
 ```
+A more useful example could be to memoize the output from whois(1):
+```sh
+#!/bin/sh
+# This is ~/.local/bin/whois
+
+exec memx -- /usr/bin/whois "${@}"
+
+# eof
+```
+
 :smile:
