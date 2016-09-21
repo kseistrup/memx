@@ -22,6 +22,8 @@ Optional arguments:
                         time before we re-run command (default: never)
   -x [CONTEXT], --context [CONTEXT]
                         free form context
+  --include-cwd [{yes,no,auto}]
+                        take $CWD into consideration (default: auto)
 ```
 
 ## Requirements
