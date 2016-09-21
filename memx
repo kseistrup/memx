@@ -18,6 +18,8 @@ Optional arguments:
                         time in seconds before we re-run command
   -x [CONTEXT], --context [CONTEXT]
                         free form context
+  --include-cwd [{yes,no,auto}]
+                        take $CWD into consideration (default: auto)
 """
 ##############################################################################
 # This program is free software; you can redistribute it and/or modify it    #
@@ -54,8 +56,8 @@ except (ImportError, NameError, Error):
 
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
-__revision__ = '2016-09-20'
-__version__ = '0.3.0 ({})'.format(__revision__)
+__revision__ = '2016-09-21'
+__version__ = '0.4.0 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-16 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -144,18 +146,17 @@ def as_utf8(string):
 
 def get_digest(config):
     """Return a suitable HMAC digest for the current configuration"""
-    command = pathlib.Path(config.vargs[0])
-    if command.is_absolute():
-        hkey = 'UID={}|GID={}|HOME={}'.format(
-            os.getuid(),
-            os.getgid(),
-            as_posix(pathlib.Path.home())
-        )
-    else:
+    if config.usecwd:
         hkey = 'UID={}|GID={}|CWD={}'.format(
             os.getuid(),
             os.getgid(),
             as_posix(config.cwd)
+        )
+    else:
+        hkey = 'UID={}|GID={}|HOME={}'.format(
+            os.getuid(),
+            os.getgid(),
+            as_posix(pathlib.Path.home())
         )
     debug('hkey', hkey)
     hasher = hmac.new(as_utf8(hkey), digestmod=sha512)
@@ -173,6 +174,16 @@ def get_config(args):
     config.ttl = int(round(args.ttl or DEFAULT_TTL))
     config.cwd = pathlib.Path.cwd()
     config.vargs = [args.COMMAND] + args.ARG
+    if args.include_cwd in {'yes', 'true'}:
+        config.usecwd = True
+    elif args.include_cwd in {'no', 'false'}:
+        config.usecwd = False
+    elif args.include_cwd in {'auto'}:
+        command = pathlib.Path(args.COMMAND)
+        if command.is_absolute():
+            config.usecwd = False
+        else:
+            config.usecwd = pathlib.posixpath.sep in args.COMMAND
     elms = [
         '{!r}'.format(arg) if has_space(arg) else arg for arg in config.vargs
     ]
@@ -297,6 +308,9 @@ def main(progname=__whoami__):
                         help='time in seconds before we re-run command')
     parser.add_argument('-x', '--context', nargs='?', default='',
                         help='free form context')
+    parser.add_argument('--include-cwd', nargs='?', default='auto',
+                        choices=('yes', 'no', 'auto'),
+                        help='take $CWD into consideration (default: auto)')
     parser.add_argument('COMMAND', help='command to run')
     parser.add_argument('ARG', nargs='*', help='optional argument(s) to command')
 
