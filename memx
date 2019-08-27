@@ -57,7 +57,7 @@ except (ImportError, NameError, Error):
 __author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
 __whoami__ = 'memx'
 __revision__ = '2019-08-27'
-__version__ = '0.4.1 ({})'.format(__revision__)
+__version__ = '0.4.2 ({})'.format(__revision__)
 __copyright__ = """\
 memx {}
 Copyright © 2015-19 Klaus Alexander Seistrup <klaus@seistrup.dk>
@@ -141,18 +141,12 @@ def as_utf8(string):
 
 def get_digest(config):
     """Return a suitable HMAC digest for the current configuration"""
+    elms = ['UID={}'.format(os.getuid()), 'GID={}'.format(os.getgid())]
     if config.usecwd:
-        hkey = 'UID={}|GID={}|CWD={}'.format(
-            os.getuid(),
-            os.getgid(),
-            as_posix(config.cwd)
-        )
+        elms.append('CWD={}'.format(as_posix(config.cwd)))
     else:
-        hkey = 'UID={}|GID={}|HOME={}'.format(
-            os.getuid(),
-            os.getgid(),
-            as_posix(pathlib.Path.home())
-        )
+        elms.append('HOME={}'.format(as_posix(as_posix(pathlib.Path.home()))))
+    hkey = '|'.join(elms)
     debug('hkey', hkey)
     hasher = hmac.new(as_utf8(hkey), digestmod=sha512)
     hasher.update(as_utf8(config.cmdline))
